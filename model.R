@@ -275,17 +275,5 @@ nb_model <- readRDS("./nb_model.rds")
 
 
 #=== Predictions =======
-
-
 nb_predictions <- predict(nb_model, corpus_test)
 nb_predictions
-
-
-
-#=================================================================
-
-
-
-
-
-

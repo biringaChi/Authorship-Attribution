@@ -302,23 +302,3 @@ net_g <- function(grid, arrow, igraph_pp, total, name) {
 }
 
 net_g(grid, arrow, igraph_pp, total, name)
-
-#------------------------------------------------------------------------------.-------------------------------------------------------------------------
-# term frequency and ziph's law
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
