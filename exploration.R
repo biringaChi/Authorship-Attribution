@@ -1,30 +1,21 @@
-library(tidyverse) 
-library(ggplot2)
-library(stringr)
-library(caret)
-library(quanteda)
-library(doSNOW)
-library(e1071)
-library(irlba)
-library(kernlab)
-library(tidytext)
-library(textdata)
-library(keras)
-library(wordcloud)
-library(wordcloud2)
-library(reshape2)
-library(tm)
-library(igraph)
-library(ggraph)
 
-input_file <- "data/Gungor_2018_VictorianAuthorAttribution_data-train.csv"
+# Loading in packages to be used
+packages <- c("tidyverse", "ggplot2", "stringr", "quanteda", 
+              "tidytext", "textdata", "wordcloud", "wordcloud2", 
+              "reshape2", "tm", "igraph", "ggraph")
+invisible(lapply(packages, library, character.only = TRUE))
+
 
 # loading in the dataset
 read_data <- function(num) {
-  dataset <- read.csv(input_file, header = T, stringsAsFactors = FALSE, nrows = num)
+  input_file <- "data/Gungor_2018_VictorianAuthorAttribution_data-train.csv"
+  if(!is.null(input_file)) {
+    dataset <- read.csv(input_file, header = T, stringsAsFactors = FALSE, 
+                        nrows = num)
+  } else stop("Incorrect File Path", call. = TRUE)
 }
 
-# sampling 2 authors
+# Sampling 2 authors
 df <- read_data(1294)
 
 # sampling 3 authors
@@ -39,7 +30,8 @@ df$label <- as.factor(df$label)
 
 # Feature engineering - calculate character length
 char_length <- function(df, text) {
-  df %>% mutate(char_length = str_count(text, pattern = boundary(type = "character")))
+  df %>% mutate(char_length = 
+                  str_count(text, pattern = boundary(type = "character")))
 }
 df <- char_length(df, text)
 
@@ -50,23 +42,35 @@ prob_dist <- function(x) {
 prob_dist(df$label)
 
 # Visualization: distribution between Authors and Character length 
-ggplot(df, aes(x = char_length, fill = label)) +
-  scale_fill_discrete(name = "Authors", labels = c("Arthur Conan Doyle", "Charles Darwin")) + geom_histogram(binwidth = 10) + theme_bw() +
-  labs(y = "Author ID", x = "Char Length",  title="Frequency of Character Length with Author's Label", caption = "Data from UCI Machine learning Repository")
-ggsave("plots/plot1.png", plot = last_plot())
+char_dist <- function(df, char_length, label) {
+  ggplot(df, aes(x = char_length, fill = label)) +
+    scale_fill_discrete(name = "Authors", 
+                        labels = c("Arthur Conan Doyle", "Charles Darwin")) + 
+    geom_histogram(binwidth = 10) + theme_bw() +
+    labs(y = "Author ID", x = "Char Length",  
+         title="Frequency of Character Length with Author's Label", 
+         caption = "Data from UCI Machine learning Repository")
+}
+
+char_dist(df, char_length, label)
 
 # changing author name
 authors_name <- function(df, label) {
-  df <- df %>% mutate(author_name = case_when(label == 1 ~ "Arthur Conan Doyle", label == 2 ~ "Charles Darwin", TRUE ~ "Missing" ))
+  df <- df %>% mutate(author_name = case_when(label == 1 ~ "Arthur Conan Doyle",
+                                              label == 2 ~ "Charles Darwin", 
+                                              TRUE ~ "Missing" ))
 }
 df <- authors_name(df, label)
 
 # Authors with the highest text length  
-df %>% group_by(author_name) %>% tally(sort = TRUE)
-# class inbalance
-df %>% group_by(label) %>% tally(sort=TRUE)
+df %>% group_by(author_name) %>% 
+  tally(sort = TRUE)
 
-# stratified sampling
+#Class inbalance
+df %>% group_by(label) %>% 
+  tally(sort=TRUE)
+
+# Stratified sampling
 split <- function(data) {
   splits <- sample(1:3, size = nrow(df), prob = c(.5, .2, .3), replace = T)
   training <<- df[splits == 1,]
@@ -75,7 +79,7 @@ split <- function(data) {
 }
 split(df)
 
-# class distribution
+# Checking class distributions
 prob_dist(training$label)
 prob_dist(validation$label)
 prob_dist(testing$label)
@@ -89,12 +93,14 @@ training <- shuffleRows(training)
 validation <- shuffleRows(validation)
 testing <- shuffleRows(testing)
 
-#------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Data preparation for sentiment analysis
-# I am going to be using the 50% of our data and a representative sampling of 100 rows
+# Using the 50% of our data and a representative sampling of 100 rows
 sent_df <- as_tibble(training[1:100, c("text", "label")])
-sent_tokens <- unnest_tokens(sent_df, w_tokens, text, token = "words", to_lower = TRUE) 
-sent_tokens <- sent_tokens %>% anti_join(stop_words, by = c("w_tokens" = "word"))
+sent_tokens <- unnest_tokens(sent_df, w_tokens, text, token = "words", 
+                             to_lower = TRUE) 
+sent_tokens <- sent_tokens %>% anti_join(stop_words, 
+                                         by = c("w_tokens" = "word"))
 
 # Top 10 words of author
 top_words <- sent_tokens %>% group_by(w_tokens, label) %>% 
@@ -108,26 +114,27 @@ top10_l2 <- sent_tokens %>% group_by(w_tokens) %>%
 
 # Arthur Conan Doyle top 10 words
 ggplot(top10_l1, aes(x = w_tokens, y = freq)) + theme_bw() +
-  geom_bar(stat="Identity") + labs(y = "Frequency", x = "Words", title = "Arthur Conan Doyle's top 10 words")
-ggsave("plots/plot2.png", plot = last_plot())
+  geom_bar(stat="Identity") + labs(y = "Frequency", x = "Words", 
+                                   title = "Arthur Conan Doyle's top 10 words")
 
 # Charles Darwin top 10 words
 ggplot(top10_l2, aes(x = w_tokens, y = freq)) +
-  geom_segment(aes(x = w_tokens, xend = w_tokens, y = 1, yend = freq), size = 0.6) +
+  geom_segment(aes(x = w_tokens, xend = w_tokens, y = 1, yend = freq), 
+               size = 0.6) +
   geom_point(size = 4, color="cyan4", shape=10, stroke=1) + theme_bw() +
-  theme(panel.grid.major.x = element_blank(), panel.border = element_blank(), axis.ticks.x = element_blank()) +
+  theme(panel.grid.major.x = element_blank(), panel.border = element_blank(), 
+        axis.ticks.x = element_blank()) +
   labs(y = "Frequency", x = "Words", title = "Charles Darwin's top 10 words")
-ggsave("plots/plot3.png", plot = last_plot())
 
 # from the top 100 words; which words do the authors share in common?
 ggplot(top_words[1:50,], aes(x = w_tokens, y = freq, fill = label)) +
   geom_bar(stat="Identity") + coord_flip() + theme_bw() +
-  labs(y = "Frequency", x = "Words", title="Top shared common words", caption = "Data from UCI Machine learning Repository") +  
-  scale_fill_discrete(name = "Authors", labels = c("Arthur Conan Doyle", "Charles Darwin"))
-ggsave("plots/plot4.png", plot = last_plot())
+  labs(y = "Frequency", x = "Words", title="Top shared common words", 
+       caption = "Data from UCI Machine learning Repository") +  
+  scale_fill_discrete(name = "Authors", 
+                      labels = c("Arthur Conan Doyle", "Charles Darwin"))
 
-#--------------------------------------------------------------------------------------------------------------------------------------------------------
-# Sentiment Analysis
+#------------------------Sentiment Analysis-------------------------------------
 positive <- get_sentiments(lexicon = "bing") %>% 
   filter(sentiment == "positive")
 
@@ -136,12 +143,12 @@ top_words %>%
   filter(label == 1) %>% 
   semi_join(positive, by = c("w_tokens" = "word"))
 
-# positive sentiment analysis for charles darwin
+# Positive sentiment analysis for charles darwin
 top_words %>% 
   filter(label == 2) %>% 
   semi_join(positive, by = c("w_tokens" = "word"))
 
-# sentiment score for words
+# Sentiment score for words
 bing <- get_sentiments(lexicon = "bing")
 bing <- tibble::rowid_to_column(bing, "id")
 bing_s <- sent_tokens %>% 
@@ -152,27 +159,35 @@ bing_s <- sent_tokens %>%
   mutate(sentiment = positive - negative)
 bing_s <- tibble::rowid_to_column(bing_s, "id")
 
-# negative and positive sentiment of the first 50 words: using the bing dictionary
+# Using the bing dictionary to compare top 50 words negative and positive sentiments
 set.seed(12456)
 bing_s <- shuffleRows(bing_s)
-ggplot(bing_s[1:50,], aes(x = w_tokens, y = sentiment, fill = label)) + coord_flip() + geom_col(position = "stack", show.legend = F) + theme_bw() +
-  labs(y = "Frequency", x = "Word", title="Sentiments: Bing Dictionary", subtitle = "Negative and Positive Words", caption = "Data from UCI Machine learning Repository") 
-ggsave("plots/plot5.png")
+ggplot(bing_s[1:50,], aes(x = w_tokens, y = sentiment, fill = label)) + 
+  coord_flip() + 
+  geom_col(position = "stack", show.legend = F) + 
+  theme_bw() +
+  labs(y = "Frequency", x = "Word", title="Sentiments: Bing Dictionary", 
+       subtitle = "Negative and Positive Words", 
+       caption = "Data from UCI Machine learning Repository") 
 
-# negative and positive sentiments analysis of authors words: using the bing dictionary
-ggplot(bing_s, aes(x = id, y = sentiment, fill = label)) + geom_col() + theme_bw() +
-  labs(y = "Sentiment", x = "Frequency", title="Negative and Positive Sentiments", subtitle = "Bing Dictionary", caption = "Data from UCI Machine learning Repository") + 
-  scale_fill_discrete(name = "Authors", labels = c("Arthur Conan Doyle", "Charles Darwin"))
-ggsave("plots/plot6.png")
+# Using the bing dictionary to compare the negative and positive sentiments author's words 
+ggplot(bing_s, aes(x = id, y = sentiment, fill = label)) +
+  geom_col() + 
+  theme_bw() +
+  labs(y = "Sentiment", x = "Frequency", 
+       title="Negative and Positive Sentiments", 
+       subtitle = "Bing Dictionary", 
+       caption = "Data from UCI Machine learning Repository") + 
+  scale_fill_discrete(name = "Authors", 
+                      labels = c("Arthur Conan Doyle", "Charles Darwin"))
 
-# Comparing sentiment dictionaries for differences in categorization of snetiments
+# Comparing sentiment dictionaries for differences in categorization of sentiments
 afinn <- get_sentiments(lexicon = "afinn")
 afinn <- sent_tokens %>% 
   inner_join(afinn, by = c("w_tokens" = "word")) %>% 
   mutate(method = "afinn") %>% 
   rename(sentiment = value) 
 afinn <- tibble::rowid_to_column(afinn, "id")
-
 
 # nrc dictionary 
 nrc <- get_sentiments(lexicon = "nrc")
@@ -196,11 +211,16 @@ bing_and_nrc <- bing_and_nrc %>% select(-id)
 bing_and_nrc <- tibble::rowid_to_column(bing_and_nrc, "id")
 bing_and_nrc <- shuffleRows(bing_and_nrc) 
 
-ggplot(bing_and_nrc, aes(x = id, y = sentiment, fill = label)) + geom_col() + theme_bw() +
-  labs(y = "Sentiment", x = "Frequency", title="Comparing Sentiment Dictionaries", 
-       subtitle = "Negative and Positive Sentiments", caption = "Data from UCI Machine learning Repository") + 
-  scale_fill_discrete(name = "Authors", labels = c("Arthur Conan Doyle", "Charles Darwin")) + facet_wrap(~method, ncol = 1, scales = "free_y")
-ggsave("plots/plot7.png")
+ggplot(bing_and_nrc, aes(x = id, y = sentiment, fill = label)) + 
+  geom_col() + 
+  theme_bw() +
+  labs(y = "Sentiment", x = "Frequency", 
+       title="Comparing Sentiment Dictionaries", 
+       subtitle = "Negative and Positive Sentiments", 
+       caption = "Data from UCI Machine learning Repository") + 
+  scale_fill_discrete(name = "Authors", 
+                      labels = c("Arthur Conan Doyle", "Charles Darwin")) + 
+  facet_wrap(~method, ncol = 1, scales = "free_y")
 
 # nrc 
 nrc_counts <- sent_tokens %>% 
@@ -209,52 +229,70 @@ nrc_counts <- sent_tokens %>%
   ungroup()
 
 # nrc sentiment categories
-ggplot(nrc_counts[1:100,], aes(x = w_tokens, y = n, fill = sentiment))  + geom_col(show.legend = F) + theme_bw() +
+ggplot(nrc_counts[1:100,], aes(x = w_tokens, y = n, fill = sentiment))  + 
+  geom_col(show.legend = F) + 
+  theme_bw() +
   labs(y = "Sentiment", x = "Frequency", title="NRC categories", 
-       subtitle = "Sentiments: anger, anticipation, disgust, fear, joy, negative, positive, sadness, surprise and trust",
-       caption = "Data from UCI Machine learning Repository") + facet_wrap(~sentiment, scales = "free_y") + coord_flip()
-ggsave("plots/plot8.png")
+       subtitle = "Sentiments: anger, anticipation, disgust, fear, joy, 
+       negative, positive, sadness, surprise and trust",
+       caption = "Data from UCI Machine learning Repository") + 
+  facet_wrap(~sentiment, scales = "free_y") + coord_flip()
 
 # word cloud plot 1 
 sent_tokens %>% 
   count(w_tokens) %>% 
-  with(wordcloud(w_tokens, n, max.words = 100, random.order=TRUE, random.color = TRUE, rot.per=0.1, scale = c(3.0,0.5), colors = brewer.pal(11, "Spectral")))
-
+  with(wordcloud(w_tokens, n, max.words = 100, random.order=TRUE, 
+                 random.color = TRUE, rot.per=0.1, scale = c(3.0,0.5), 
+                 colors = brewer.pal(11, "Spectral")))
 
 # Analysing shingles
 # ngram = 2; seperate filter and combine individual stopwords 
-ngram_2 <- function(sent_df, shingles, text, shingle1, stop_words, shingle2, num, label) {
+ngram_2 <- function(sent_df, shingles, text, shingle1, stop_words, 
+                    shingle2, num, label) {
   ngram <- unnest_tokens(sent_df, shingles, text, token = "ngrams", n = num) 
   bi_sep <<- ngram %>% 
-    separate(shingles, c("shingle1", "shingle2"), sep = " ", remove = T, convert = F)
+    separate(shingles, c("shingle1", "shingle2"), sep = " ", 
+             remove = T, convert = F)
   bi_fil <- bi_sep %>% 
     filter(!shingle1 %in% stop_words$word) %>% 
     filter(!shingle2 %in% stop_words$word) 
-  bi_count <- bi_fil %>% group_by(label) %>% count(shingle1, shingle2, sort = T, name = "total") 
-  bigram <- bi_fil %>% unite(shingles, shingle1, shingle2, sep = " ", remove = T)
-  bigram %>% group_by(label) %>% count(shingles, sort = T, name = "freq")
+  bi_count <- bi_fil %>% group_by(label) %>% 
+    count(shingle1, shingle2, sort = T, name = "total") 
+  bigram <- bi_fil %>% 
+    unite(shingles, shingle1, shingle2, sep = " ", remove = T)
+  bigram %>% group_by(label) %>% 
+    count(shingles, sort = T, name = "freq")
 }
 
 ngram_2(sent_df, shingles, text, shingle1, stop_words, shingle2, num = 2, label)
 
 # ngrams = 3. # not alot going here.
-ngram_3 <- function(sent_df, shingles, text, shingle1, stop_words, shingle2, shingle3, shingle4, num, label) {
+ngram_3 <- function(sent_df, shingles, text, shingle1, stop_words, shingle2, 
+                    shingle3, shingle4, num, label) {
   ngram <- unnest_tokens(sent_df, shingles, text, token = "ngrams", n = num) 
   sep <- ngram %>% 
-    separate(shingles, c("shingle1", "shingle2", "shingle3", "shingle4"), sep = " ", remove = T, convert = F)
+    separate(shingles, c("shingle1", "shingle2", "shingle3", "shingle4"),
+             sep = " ", remove = T, convert = F)
   fil <- sep %>% 
     filter(!shingle1 %in% stop_words$word) %>% 
     filter(!shingle2 %in% stop_words$word) %>% 
     filter(!shingle3 %in% stop_words$word) %>% 
     filter(!shingle4 %in% stop_words$word)
-  ngram <- fil %>% unite(shingles, shingle1, shingle2, shingle3, shingle4, sep = " ", remove = T, na.rm = T)
-  ngram %>% group_by(label) %>% count(shingles, sort = T, name = "freq")
+  ngram <- fil %>% 
+    unite(shingles, shingle1, shingle2, shingle3, shingle4, sep = " ", 
+          remove = T, na.rm = T)
+  ngram %>% 
+    group_by(label) %>% 
+    count(shingles, sort = T, name = "freq")
 }
 
-ngram_3(sent_df, shingles, text, shingle1, stop_words, shingle2, shingle3, shingle4, num = 3, label)
+ngram_3(sent_df, shingles, text, shingle1, stop_words, shingle2, 
+        shingle3, shingle4, num = 3, label)
 
-# remeber from our previous sentiment anlysis, the word "mother" seem to have a huge importance in positive and negative sentiments 
+# Remeber from our previous sentiment anlysis, the word "mother" seem to have 
+# huge importance in positive and negative sentiments 
 # lets see what that is all about in a bigram settings 
+
 bi_sep %>%
   filter(shingle2 == "mother") %>%
   count(shingle1, shingle2, sort = TRUE)
@@ -266,20 +304,21 @@ s_girl <- bi_sep %>%
 
 s_girl
 
-#--------------------------------------------------------------------------------------------------------------------------------------------------------
-# igraph df
-# using the full dataset
+#-------------------------------------------------------------------------------
+# igraph df - using the full dataset
 igraph <- function(df, shingles, text, shingle1, stop_words, shingle2, label) {
   igraph_df <- as_tibble(df, c("text", "label"))
   ngram <- unnest_tokens(igraph_df, shingles, text, token = "ngrams", n = 2) 
   bi_sep <- ngram %>% 
-    separate(shingles, c("shingle1", "shingle2"), sep = " ", remove = T, convert = F)
+    separate(shingles, c("shingle1", "shingle2"), sep = " ", 
+             remove = T, convert = F)
   bi_fil <- bi_sep %>% 
     filter(!shingle1 %in% stop_words$word) %>% 
     filter(!shingle2 %in% stop_words$word)  
   igraph_c <- bi_fil %>% group_by(label) %>% 
     count(shingle1, shingle2, sort = T, name = "total") 
 }
+
 igraph_count <- igraph(df, shingles, text, shingle1, stop_words, shingle2, label)
 
 # top combinations: igrpah counts + data frame to plot 
@@ -295,9 +334,12 @@ net_g <- function(grid, arrow, igraph_pp, total, name) {
   set.seed(0988)
   ar <- grid::arrow(type = "closed", length = unit(.15, "inches"))
   ggraph(igraph_pp, layout = "fr") +
-    geom_edge_link(aes(edge_alpha = total, edge_width = total), show.legend = FALSE, arrow = ar, edge_colour = "cyan4", end_cap = circle(.07, 'inches')) +
+    geom_edge_link(aes(edge_alpha = total, edge_width = total),
+                   show.legend = FALSE, arrow = ar, edge_colour = "cyan4",
+                   end_cap = circle(.07, 'inches')) +
     geom_node_point(color = "red", size = 3) +
-    geom_node_text(aes(label = name), repel = T, point.padding = unit(0.2, "lines")) +
+    geom_node_text(aes(label = name), repel = T, 
+                   point.padding = unit(0.2, "lines")) +
     theme_void() + ggtitle("Word Network")
 }
 

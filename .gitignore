@@ -1,11 +1,14 @@
-# Ignore everything 
+# Ignore
 * 
 
-# Except this
+# Accept
 !.gitignore
 !exploration.R
 !model.R
 !README.md
-!/plots
+!plots
+!LICENSE
+!report.html
 
 #.Rproj.user
+.Rproj.user
