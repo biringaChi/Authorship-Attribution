@@ -1,4 +1,4 @@
-## Text_Mining-Author_Prediction
+## Text Mining and Author Prediction
 
 Authorship prediction refers to the association of an author to a specific document. In literature, it is very important to know about historical text who wrote it and when it was written. However, we can also predict the nationality of the author, characteristic styles of the author, characteristic styles of the author and genre of the text.
 
